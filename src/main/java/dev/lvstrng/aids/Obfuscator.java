@@ -54,7 +54,7 @@ public class Obfuscator {
 
         try (var zos = new ZipOutputStream(new FileOutputStream(name))) {
             for(var classNode : classes) {
-                writeZipEntry(zos, classNode.name.replace('/', '.') + ".class", classToBytes(classNode));
+                writeZipEntry(zos, classNode.name + ".class", classToBytes(classNode));
             }
 
             for(var resource : Jar.getResources().entrySet()) {
