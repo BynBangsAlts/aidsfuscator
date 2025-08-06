@@ -1,0 +1,271 @@
+package dev.lvstrng.aids.transform.impl.data;
+
+import dev.lvstrng.aids.jar.Jar;
+import dev.lvstrng.aids.transform.Transformer;
+import dev.lvstrng.aids.utils.ASMUtils;
+import org.objectweb.asm.tree.*;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+
+public class IntegerEncryptTransformer extends Transformer {
+    @Override
+    public void transform() {
+        for(var classNode : Jar.getClasses()) {
+            var pool = new ArrayList<Integer>();
+            var key = getKey().getEncoded();
+            var iv = getIv();
+
+            for(var method : classNode.methods) {
+                for(var insn : method.instructions) {
+                    if(!isValidIntPush(insn))
+                        continue;
+
+                    int xor1 = random.nextInt();
+                    int xor2 = random.nextInt();
+
+                    var list = new InsnList();
+                    list.add(new FieldInsnNode(GETSTATIC, classNode.name, "a", "[I"));
+                    list.add(ASMUtils.pushInt(pool.size()));
+                    list.add(new InsnNode(IALOAD));
+
+                    var number = ASMUtils.getInt(insn);
+                    pool.add(number);
+
+                    method.instructions.insertBefore(insn, list);
+                    method.instructions.remove(insn);
+                }
+            }
+
+            if(!pool.isEmpty()) {
+                generateClinit(classNode, "a", pool, key, iv);
+                classNode.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC | ACC_FINAL, "a", "[I", null, null));
+            }
+        }
+    }
+
+    private void generateClinit(ClassNode classNode, String fieldName, List<Integer> pool, byte[] key, byte[] iv) {
+        var method = classNode.methods.stream()
+                .filter(e -> e.name.equals("<clinit>"))
+                .findAny().orElseGet(() -> {
+                    var node = new MethodNode(ACC_STATIC, "<clinit>", "()V", null, null);
+                    classNode.methods.add(node);
+                    return node;
+                });
+
+        int xorKey = random.nextInt();
+        var sb = new StringBuilder();
+        for(var num : pool) {
+            sb.append(new String(intToBytes(num ^ xorKey), StandardCharsets.ISO_8859_1));
+        }
+
+        var enc = encrypt(sb.toString(), key, iv);
+        int alloc = method.maxLocals++;
+
+        int keyBytes = alloc + 1;
+        int ivBytes = alloc + 2;
+        int cipher = alloc + 3;
+        int i = alloc + 4;
+        int ptr = alloc + 5;
+        int arr = alloc + 6;
+        int bytes = alloc + 7;
+
+        var list = new InsnList();
+
+        list.add(new LdcInsnNode(enc));
+        list.add(new VarInsnNode(ASTORE, alloc));
+
+        list.add(new LdcInsnNode(new String(key, StandardCharsets.ISO_8859_1)));
+        list.add(new LdcInsnNode("ISO-8859-1"));
+        list.add(new InsnNode(DUP_X1));
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
+        list.add(new VarInsnNode(ASTORE, keyBytes));
+
+        list.add(new LdcInsnNode(new String(iv, StandardCharsets.ISO_8859_1)));
+        list.add(new InsnNode(SWAP));
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
+        list.add(new VarInsnNode(ASTORE, ivBytes));
+
+        list.add(new LdcInsnNode("AES/CBC/PKCS5Padding"));
+        list.add(new MethodInsnNode(INVOKESTATIC, "javax/crypto/Cipher", "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Cipher;"));
+        list.add(new VarInsnNode(ASTORE, cipher));
+
+        list.add(new VarInsnNode(ALOAD, cipher));
+        list.add(new InsnNode(ICONST_2));
+        list.add(new TypeInsnNode(NEW, "javax/crypto/spec/SecretKeySpec"));
+        list.add(new InsnNode(DUP));
+        list.add(new VarInsnNode(ALOAD, keyBytes));
+        list.add(new LdcInsnNode("AES"));
+        list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/SecretKeySpec", "<init>", "([BLjava/lang/String;)V")); //secretKeySpec
+
+        list.add(new TypeInsnNode(NEW, "javax/crypto/spec/IvParameterSpec"));
+        list.add(new InsnNode(DUP));
+        list.add(new VarInsnNode(ALOAD, ivBytes));
+        list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/IvParameterSpec", "<init>", "([B)V"));
+
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "init", "(ILjava/security/Key;Ljava/security/spec/AlgorithmParameterSpec;)V"));
+
+        list.add(new TypeInsnNode(NEW, "java/lang/String"));
+        list.add(new InsnNode(DUP));
+        list.add(new VarInsnNode(ALOAD, cipher));
+        list.add(new MethodInsnNode(INVOKESTATIC, "java/util/Base64", "getDecoder", "()Ljava/util/Base64$Decoder;"));
+        list.add(new VarInsnNode(ALOAD, alloc));
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/util/Base64$Decoder", "decode", "(Ljava/lang/String;)[B"));
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "doFinal", "([B)[B"));
+        list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([B)V"));
+        list.add(new VarInsnNode(ASTORE, alloc));
+
+        list.add(new InsnNode(ICONST_0));
+        list.add(new InsnNode(DUP));
+        list.add(new VarInsnNode(ISTORE, i));
+        list.add(new VarInsnNode(ISTORE, ptr));
+
+        list.add(new VarInsnNode(ALOAD, alloc));
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "length", "()I"));
+        list.add(new InsnNode(ICONST_4));
+        list.add(new InsnNode(IDIV));
+        list.add(new IntInsnNode(NEWARRAY, T_INT));
+        list.add(new VarInsnNode(ASTORE, arr));
+
+        var lbl = new LabelNode();
+        list.add(lbl);
+
+        list.add(new VarInsnNode(ALOAD, alloc));
+        list.add(new VarInsnNode(ILOAD, ptr));
+        list.add(new InsnNode(DUP));
+        list.add(new InsnNode(ICONST_4));
+        list.add(new InsnNode(IADD));
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "substring", "(II)Ljava/lang/String;"));
+        list.add(new LdcInsnNode("ISO-8859-1"));
+        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
+        list.add(new VarInsnNode(ASTORE, bytes));
+
+        //unpack
+        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(ASMUtils.pushInt(0));
+        list.add(new InsnNode(BALOAD));
+        list.add(ASMUtils.pushInt(255));
+        list.add(new InsnNode(IAND));
+        list.add(ASMUtils.pushInt(24));
+        list.add(new InsnNode(ISHL));
+
+        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(ASMUtils.pushInt(1));
+        list.add(new InsnNode(BALOAD));
+        list.add(ASMUtils.pushInt(255));
+        list.add(new InsnNode(IAND));
+        list.add(ASMUtils.pushInt(16));
+        list.add(new InsnNode(ISHL));
+        list.add(new InsnNode(IOR));
+
+        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(ASMUtils.pushInt(2));
+        list.add(new InsnNode(BALOAD));
+        list.add(ASMUtils.pushInt(255));
+        list.add(new InsnNode(IAND));
+        list.add(ASMUtils.pushInt(8));
+        list.add(new InsnNode(ISHL));
+        list.add(new InsnNode(IOR));
+
+        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(ASMUtils.pushInt(3));
+        list.add(new InsnNode(BALOAD));
+        list.add(ASMUtils.pushInt(255));
+        list.add(new InsnNode(IAND));
+        list.add(new InsnNode(IOR));
+
+        list.add(ASMUtils.pushInt(xorKey));
+        list.add(new InsnNode(IXOR));
+        list.add(new VarInsnNode(ALOAD, arr));
+        list.add(new VarInsnNode(ILOAD, i));
+        list.add(new InsnNode(DUP2_X1));
+        list.add(new InsnNode(POP2));
+        list.add(new InsnNode(IASTORE));
+
+        list.add(new IincInsnNode(i, 1));
+        list.add(new IincInsnNode(ptr, 4));
+
+        list.add(new VarInsnNode(ILOAD, i));
+        list.add(new VarInsnNode(ALOAD, arr));
+        list.add(new InsnNode(ARRAYLENGTH));
+        list.add(new JumpInsnNode(IF_ICMPLT, lbl));
+
+        list.add(new VarInsnNode(ALOAD, arr));
+        list.add(new FieldInsnNode(PUTSTATIC, classNode.name, fieldName, "[I"));
+
+        if(method.instructions.size() == 0)
+            list.add(new InsnNode(RETURN));
+
+        method.instructions.insert(list);
+    }
+
+    private static boolean isValidIntPush(AbstractInsnNode insn) {
+        return (insn instanceof LdcInsnNode ldc && ldc.cst instanceof Integer) || insn.getOpcode() == SIPUSH || insn.getOpcode() == BIPUSH;
+    }
+
+    private static byte[] intToBytes(int i) {
+        var bytes = new byte[4];
+        bytes[0] = (byte) (i >> 24);
+        bytes[1] = (byte) (i >> 16);
+        bytes[2] = (byte) (i >> 8);
+        bytes[3] = (byte) (i);
+
+        return bytes;
+    }
+
+    public static int bytesToInt(byte[] bytes) {
+        return ((int) bytes[0] & 0xFF) << 24 |
+                ((int) bytes[1] & 0xFF) << 16 |
+                ((int) bytes[2] & 0xFF) << 8 |
+                ((int) bytes[3] & 0xFF);
+    }
+
+    private static SecretKey getKey() {
+        try {
+            var gen = KeyGenerator.getInstance("AES");
+            gen.init(256, new SecureRandom());
+            return gen.generateKey();
+        } catch (NoSuchAlgorithmException _) {
+            return null;
+        }
+    }
+
+    private static byte[] getIv() {
+        var iv = new byte[16];
+        random.nextBytes(iv);
+        return iv;
+    }
+
+    private static String encrypt(String str, byte[] key, byte[] iv) {
+        try {
+            var c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+            return Base64.getEncoder().encodeToString(c.doFinal(str.getBytes()));
+        } catch (Throwable e) {
+            System.err.println(e.getMessage());
+            return null;
+        }
+    }
+
+    private static String decrypt(String str, byte[] key, byte[] iv) {
+        try {
+            var c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            c.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+            var bytes = Base64.getDecoder().decode(str);
+
+            return new String(c.doFinal(bytes));
+        } catch (Throwable e) {
+            System.err.println(e.getMessage());
+            return null;
+        }
+    }
+}
