@@ -39,7 +39,11 @@ public class LightFlowTransformer extends Transformer {
                         //for gotos
                         case 0: {
                             var lbl = new LabelNode();
-                            method.instructions.insertBefore(insn, lbl);
+                            if(insn instanceof LabelNode target) {
+                                lbl = target;
+                            } else {
+                                method.instructions.insertBefore(insn, lbl);
+                            }
 
                             empty.computeIfAbsent(FrameAnalyzer.generateMap(frame), _ -> new ArrayList<>()).add(lbl);
                             break;
@@ -75,7 +79,6 @@ public class LightFlowTransformer extends Transformer {
 
                             var available = frameTargets.stream()
                                     .filter(e -> method.instructions.indexOf(e) > method.instructions.indexOf(insn))//again, only forward jumps
-                                    .filter(e -> Math.abs(method.instructions.indexOf(e) - method.instructions.indexOf(insn)) > 7) //keep empty labels away!!
                                     .toList();
                             if(available.isEmpty())
                                 continue;
@@ -87,8 +90,10 @@ public class LightFlowTransformer extends Transformer {
                                 continue;
 
                             var last = available.getLast();
-                            var list = new InsnList();
+                            if(last == jmp.label)
+                                continue;
 
+                            var list = new InsnList();
                             list.add(new VarInsnNode(ILOAD, local));
                             list.add(new JumpInsnNode(IFEQ, last)); //never jumps
                             list.add(new VarInsnNode(ILOAD, local));
@@ -114,7 +119,7 @@ public class LightFlowTransformer extends Transformer {
                             if(availableLabels.isEmpty())
                                 continue;
 
-                            var lastLbl = availableLabels.getLast();
+                            var lastLbl = availableLabels.getFirst();
                             var list = new InsnList();
 
                             list.add(new VarInsnNode(ILOAD, local));
