@@ -8,7 +8,6 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.Frame;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,5 +61,13 @@ public class ASMUtils implements Opcodes {
 
     public static boolean isReturn(AbstractInsnNode insn) {
         return insn.getOpcode() >= IRETURN && insn.getOpcode() <= RETURN;
+    }
+
+    public static int getJumpConsumer(int opcode) {
+        return switch (opcode) {
+            case IFEQ, IFNE, IFLE, IFLT, IFGE, IFGT, IFNULL, IFNONNULL -> 1;
+            case IF_ACMPEQ, IF_ACMPNE, IF_ICMPEQ, IF_ICMPNE, IF_ICMPLE, IF_ICMPLT, IF_ICMPGE, IF_ICMPGT -> 2;
+            default -> 0;
+        };
     }
 }
