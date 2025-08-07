@@ -7,6 +7,7 @@ import dev.lvstrng.aids.utils.ASMUtils;
 import dev.lvstrng.aids.utils.Dictionary;
 import org.objectweb.asm.tree.*;
 
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +17,10 @@ public class IntegerEncryptTransformer extends Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {
-            var fieldName = Dictionary.FIELD.getNewName(classNode);
+            if(Modifier.isInterface(classNode.access))
+                continue;
 
+            var fieldName = Dictionary.FIELD.getNewName(classNode);
             var pool = new ArrayList<Integer>();
             var key = AESUtil.getKey().getEncoded();
             var iv = AESUtil.getIv();
@@ -76,6 +79,7 @@ public class IntegerEncryptTransformer extends Transformer {
         int arr = alloc + 6;
         int bytes = alloc + 7;
 
+        method.maxLocals += bytes;
         var list = new InsnList();
 
         list.add(new LdcInsnNode(enc));

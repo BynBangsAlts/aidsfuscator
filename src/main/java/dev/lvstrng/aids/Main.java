@@ -1,6 +1,7 @@
 package dev.lvstrng.aids;
 
 import dev.lvstrng.aids.transform.impl.data.IntegerEncryptTransformer;
+import dev.lvstrng.aids.transform.impl.data.StringEncryptTransformer;
 import dev.lvstrng.aids.transform.impl.flow.LightFlowTransformer;
 import dev.lvstrng.aids.transform.impl.flow.UselessExceptionTransformer;
 import org.objectweb.asm.ClassWriter;
@@ -12,6 +13,7 @@ public class Main {
         obfuscator.obfuscate(
                 new LightFlowTransformer(),
                 new UselessExceptionTransformer(),
+                new StringEncryptTransformer(),
                 new IntegerEncryptTransformer()
         );
         obfuscator.saveOutput("out.jar");
