@@ -36,9 +36,6 @@ public enum Dictionary {
      * @return new UNUSED name for a member
      */
     public String getNewName(ClassNode clazz) {
-        if(this == CLASS)
-            return getNewName();
-
         //list to check for member names
         var list = (this == METHOD) ?
                 HierarchyUtils.getMethods(clazz) :
