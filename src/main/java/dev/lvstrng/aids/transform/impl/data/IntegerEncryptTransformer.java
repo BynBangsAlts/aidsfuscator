@@ -2,28 +2,25 @@ package dev.lvstrng.aids.transform.impl.data;
 
 import dev.lvstrng.aids.jar.Jar;
 import dev.lvstrng.aids.transform.Transformer;
+import dev.lvstrng.aids.utils.AESUtil;
 import dev.lvstrng.aids.utils.ASMUtils;
+import dev.lvstrng.aids.utils.Dictionary;
 import org.objectweb.asm.tree.*;
 
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
+//TODO encrypt before adding to pool and add decrypt method
 public class IntegerEncryptTransformer extends Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {
+            var fieldName = Dictionary.FIELD.getNewName(classNode);
+
             var pool = new ArrayList<Integer>();
-            var key = getKey().getEncoded();
-            var iv = getIv();
+            var key = AESUtil.getKey().getEncoded();
+            var iv = AESUtil.getIv();
 
             for(var method : classNode.methods) {
                 for(var insn : method.instructions) {
@@ -34,7 +31,7 @@ public class IntegerEncryptTransformer extends Transformer {
                     int xor2 = random.nextInt();
 
                     var list = new InsnList();
-                    list.add(new FieldInsnNode(GETSTATIC, classNode.name, "a", "[I"));
+                    list.add(new FieldInsnNode(GETSTATIC, classNode.name, fieldName, "[I"));
                     list.add(ASMUtils.pushInt(pool.size()));
                     list.add(new InsnNode(IALOAD));
 
@@ -47,8 +44,8 @@ public class IntegerEncryptTransformer extends Transformer {
             }
 
             if(!pool.isEmpty()) {
-                generateClinit(classNode, "a", pool, key, iv);
-                classNode.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC | ACC_FINAL, "a", "[I", null, null));
+                generateClinit(classNode, fieldName, pool, key, iv);
+                classNode.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC | ACC_FINAL, fieldName, "[I", null, null));
             }
         }
     }
@@ -68,7 +65,7 @@ public class IntegerEncryptTransformer extends Transformer {
             sb.append(new String(intToBytes(num ^ xorKey), StandardCharsets.ISO_8859_1));
         }
 
-        var enc = encrypt(sb.toString(), key, iv);
+        var enc = AESUtil.encrypt(sb.toString(), key, iv);
         int alloc = method.maxLocals++;
 
         int keyBytes = alloc + 1;
@@ -227,45 +224,5 @@ public class IntegerEncryptTransformer extends Transformer {
                 ((int) bytes[1] & 0xFF) << 16 |
                 ((int) bytes[2] & 0xFF) << 8 |
                 ((int) bytes[3] & 0xFF);
-    }
-
-    private static SecretKey getKey() {
-        try {
-            var gen = KeyGenerator.getInstance("AES");
-            gen.init(256, new SecureRandom());
-            return gen.generateKey();
-        } catch (NoSuchAlgorithmException _) {
-            return null;
-        }
-    }
-
-    private static byte[] getIv() {
-        var iv = new byte[16];
-        random.nextBytes(iv);
-        return iv;
-    }
-
-    private static String encrypt(String str, byte[] key, byte[] iv) {
-        try {
-            var c = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
-            return Base64.getEncoder().encodeToString(c.doFinal(str.getBytes()));
-        } catch (Throwable e) {
-            System.err.println(e.getMessage());
-            return null;
-        }
-    }
-
-    private static String decrypt(String str, byte[] key, byte[] iv) {
-        try {
-            var c = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            c.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
-            var bytes = Base64.getDecoder().decode(str);
-
-            return new String(c.doFinal(bytes));
-        } catch (Throwable e) {
-            System.err.println(e.getMessage());
-            return null;
-        }
     }
 }

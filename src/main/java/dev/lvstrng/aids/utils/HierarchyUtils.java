@@ -2,9 +2,11 @@ package dev.lvstrng.aids.utils;
 
 import dev.lvstrng.aids.jar.Jar;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.HashSet;
+import java.util.List;
 
 public class HierarchyUtils {
     public static String getCommonSuperClass(ClassNode node, ClassNode other) {
@@ -45,5 +47,23 @@ public class HierarchyUtils {
         return owner.methods.stream()
                 .filter(e -> e.name.equals(name) && e.desc.equals(desc))
                 .findAny().orElse(null);
+    }
+
+    public static FieldNode getField(ClassNode owner, String name, String desc) {
+        return owner.fields.stream()
+                .filter(e -> e.name.equals(name) && e.desc.equals(desc))
+                .findAny().orElse(null);
+    }
+
+    public static List<String> getMethods(ClassNode clazz) {
+        return clazz.methods.stream().map(e -> e.name).toList();
+    }
+
+    public static List<String> getFields(ClassNode clazz) {
+        return clazz.fields.stream().map(e -> e.name).toList();
+    }
+
+    public static List<String> getClasses() {
+        return Jar.getClasses().stream().map(e -> e.name).toList();
     }
 }
