@@ -10,6 +10,7 @@ import org.objectweb.asm.tree.analysis.Frame;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 public class ASMUtils implements Opcodes {
     public static Map<AbstractInsnNode, Frame<AbstractValue>> analyzeMethod(ClassNode owner, MethodNode method) {
@@ -70,4 +71,20 @@ public class ASMUtils implements Opcodes {
             default -> 0;
         };
     }
+
+    public static void sortSwitch(LookupSwitchInsnNode sw) {
+        var entries = IntStream.range(0, sw.keys.size())
+                .mapToObj(i -> Map.entry(sw.keys.get(i), sw.labels.get(i)))
+                .sorted(Map.Entry.comparingByKey())
+                .toList();
+
+        sw.keys.clear();
+        sw.labels.clear();
+
+        for (var entry : entries) {
+            sw.keys.add(entry.getKey());
+            sw.labels.add(entry.getValue());
+        }
+    }
+
 }

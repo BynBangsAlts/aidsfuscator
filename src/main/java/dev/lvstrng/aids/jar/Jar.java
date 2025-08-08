@@ -12,6 +12,17 @@ public class Jar {
     private static final Map<String, ClassNode> libraries =   new HashMap<>();
     private static final Map<String, byte[]> resources =      new HashMap<>();
 
+    public static ClassNode getClassAll(String name) {
+        var clazz = Jar.getLibrary(name);
+        if(clazz == null)
+            clazz = Jar.getClass(name);
+
+        if(clazz == null)
+            clazz = Jar.getArtificial(name);
+
+        return clazz;
+    }
+
     public static void addResource(String name, byte[] data) {
         resources.put(name, data);
     }

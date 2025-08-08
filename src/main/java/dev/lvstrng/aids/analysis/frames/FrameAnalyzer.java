@@ -5,37 +5,37 @@ import org.objectweb.asm.tree.analysis.Frame;
 
 public class FrameAnalyzer {
     public static String generateMap(Frame<AbstractValue> frame) {
-        var builder = new StringBuilder("stack = { ");
+        var sb = new StringBuilder("stack: { ");
 
         if(frame.getStackSize() > 0) {
             for(int i = 0; i < frame.getStackSize(); i++) {
-                var stack = frame.getStack(i).getType();
-                if(stack != null) {
-                    builder.append("'").append(stack.getInternalName()).append("', ");
-                    continue;
-                }
+                var type = frame.getStack(i).getType();
 
-                builder.append("'uninitialized', ");
+                if(type != null) {
+                    sb.append("'").append(type.getDescriptor()).append("'").append(", ");
+                } else {
+                    sb.append("'uninitialized', ");
+                }
             }
-            builder.delete(builder.length() - 2, builder.length());
+            sb.delete(sb.length() - 2, sb.length());
         }
 
-        builder.append(" }, locals = { ");
-        if(frame.getStackSize() > 0) {
+        sb.append(" }, locals: { ");
+        if(frame.getLocals() > 0) {
             for(int i = 0; i < frame.getLocals(); i++) {
-                var local = frame.getLocal(i).getType();
-                if(local != null) {
-                    builder.append("'").append(local.getInternalName()).append("', ");
-                    continue;
+                var type = frame.getLocal(i).getType();
+
+                if(type != null) {
+                    sb.append("'").append(type.getDescriptor()).append("'").append(", ");
+                } else {
+                    sb.append("'uninitialized', ");
                 }
-
-                builder.append("'uninitialized', ");
             }
-            builder.delete(builder.length() - 2, builder.length());
+            sb.delete(sb.length() - 2, sb.length());
         }
-        builder.append(" }");
 
-        return builder.toString();
+        sb.append(" }");
+        return sb.toString();
     }
 
     public static boolean equals(Frame<AbstractValue> frame, Frame<AbstractValue> frame2) {
