@@ -1,6 +1,7 @@
 package dev.lvstrng.aids.transform.impl.flow;
 
 import dev.lvstrng.aids.analysis.frames.FrameAnalyzer;
+import dev.lvstrng.aids.analysis.misc.Local;
 import dev.lvstrng.aids.jar.Jar;
 import dev.lvstrng.aids.transform.Transformer;
 import dev.lvstrng.aids.utils.ASMUtils;
@@ -21,10 +22,10 @@ public class LightFlowTransformer extends Transformer {
                 if(frames == null)
                     continue;
 
-                int local = method.maxLocals++;
+                var local = Local.alloc(method, Type.INT_TYPE);
                 int number = random.nextInt(); //we're gonna integer encrypt it anyway
 
-                method.instructions.insert(new VarInsnNode(ISTORE, local));
+                method.instructions.insert(local.store());
                 method.instructions.insert(ASMUtils.pushInt(number));
 
                 var targets = new HashMap<String, List<LabelNode>>();
@@ -94,9 +95,9 @@ public class LightFlowTransformer extends Transformer {
                                 continue;
 
                             var list = new InsnList();
-                            list.add(new VarInsnNode(ILOAD, local));
+                            list.add(local.load());
                             list.add(new JumpInsnNode(IFEQ, last)); //never jumps
-                            list.add(new VarInsnNode(ILOAD, local));
+                            list.add(local.load());
                             list.add(new JumpInsnNode(IFNE, jmp.label)); //real deal
 
                             method.instructions.insertBefore(insn, list);
@@ -122,7 +123,7 @@ public class LightFlowTransformer extends Transformer {
                             var lastLbl = availableLabels.getFirst();
                             var list = new InsnList();
 
-                            list.add(new VarInsnNode(ILOAD, local));
+                            list.add(local.load());
                             list.add(new JumpInsnNode(IFEQ, lastLbl)); //if local is 0, jump to label (should realistically never happen)
 
                             method.instructions.insertBefore(insn, list);

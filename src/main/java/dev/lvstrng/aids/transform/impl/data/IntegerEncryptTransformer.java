@@ -1,10 +1,12 @@
 package dev.lvstrng.aids.transform.impl.data;
 
+import dev.lvstrng.aids.analysis.misc.Local;
 import dev.lvstrng.aids.jar.Jar;
 import dev.lvstrng.aids.transform.Transformer;
 import dev.lvstrng.aids.utils.AESUtil;
 import dev.lvstrng.aids.utils.ASMUtils;
 import dev.lvstrng.aids.utils.Dictionary;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.lang.reflect.Modifier;
@@ -69,89 +71,88 @@ public class IntegerEncryptTransformer extends Transformer {
         }
 
         var enc = AESUtil.encrypt(sb.toString(), key, iv);
-        int alloc = method.maxLocals++;
+        var alloc = Local.alloc(method, Type.getObjectType("java/lang/String"));
 
-        int keyBytes = alloc + 1;
-        int ivBytes = alloc + 2;
-        int cipher = alloc + 3;
-        int i = alloc + 4;
-        int ptr = alloc + 5;
-        int arr = alloc + 6;
-        int bytes = alloc + 7;
+        var keyBytes =  Local.allocObject(method);
+        var ivBytes =   Local.allocObject(method);
+        var cipher =    Local.allocObject(method);
+        var i =         Local.alloc(method, Type.INT_TYPE);
+        var ptr =       Local.alloc(method, Type.INT_TYPE);
+        var arr =       Local.allocObject(method);
+        var bytes =     Local.allocObject(method);
 
-        method.maxLocals += bytes;
         var list = new InsnList();
 
         list.add(new LdcInsnNode(enc));
-        list.add(new VarInsnNode(ASTORE, alloc));
+        list.add(alloc.store());
 
         list.add(new LdcInsnNode(new String(key, StandardCharsets.ISO_8859_1)));
         list.add(new LdcInsnNode("ISO-8859-1"));
         list.add(new InsnNode(DUP_X1));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
-        list.add(new VarInsnNode(ASTORE, keyBytes));
+        list.add(keyBytes.store());
 
         list.add(new LdcInsnNode(new String(iv, StandardCharsets.ISO_8859_1)));
         list.add(new InsnNode(SWAP));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
-        list.add(new VarInsnNode(ASTORE, ivBytes));
+        list.add(ivBytes.store());
 
         list.add(new LdcInsnNode("AES/CBC/PKCS5Padding"));
         list.add(new MethodInsnNode(INVOKESTATIC, "javax/crypto/Cipher", "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Cipher;"));
-        list.add(new VarInsnNode(ASTORE, cipher));
+        list.add(cipher.store());
 
-        list.add(new VarInsnNode(ALOAD, cipher));
+        list.add(cipher.load());
         list.add(new InsnNode(ICONST_2));
         list.add(new TypeInsnNode(NEW, "javax/crypto/spec/SecretKeySpec"));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, keyBytes));
+        list.add(keyBytes.load());
         list.add(new LdcInsnNode("AES"));
         list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/SecretKeySpec", "<init>", "([BLjava/lang/String;)V")); //secretKeySpec
 
         list.add(new TypeInsnNode(NEW, "javax/crypto/spec/IvParameterSpec"));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, ivBytes));
+        list.add(ivBytes.load());
         list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/IvParameterSpec", "<init>", "([B)V"));
 
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "init", "(ILjava/security/Key;Ljava/security/spec/AlgorithmParameterSpec;)V"));
 
         list.add(new TypeInsnNode(NEW, "java/lang/String"));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, cipher));
+        list.add(cipher.load());
         list.add(new MethodInsnNode(INVOKESTATIC, "java/util/Base64", "getDecoder", "()Ljava/util/Base64$Decoder;"));
-        list.add(new VarInsnNode(ALOAD, alloc));
+        list.add(alloc.load());
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/util/Base64$Decoder", "decode", "(Ljava/lang/String;)[B"));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "doFinal", "([B)[B"));
         list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([B)V"));
-        list.add(new VarInsnNode(ASTORE, alloc));
+        list.add(alloc.store());
 
         list.add(new InsnNode(ICONST_0));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ISTORE, i));
-        list.add(new VarInsnNode(ISTORE, ptr));
+        list.add(i.store());
+        list.add(ptr.store());
 
-        list.add(new VarInsnNode(ALOAD, alloc));
+        list.add(alloc.load());
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "length", "()I"));
         list.add(new InsnNode(ICONST_4));
         list.add(new InsnNode(IDIV));
         list.add(new IntInsnNode(NEWARRAY, T_INT));
-        list.add(new VarInsnNode(ASTORE, arr));
+        list.add(arr.store());
 
         var lbl = new LabelNode();
         list.add(lbl);
 
-        list.add(new VarInsnNode(ALOAD, alloc));
-        list.add(new VarInsnNode(ILOAD, ptr));
+        list.add(alloc.load());
+        list.add(ptr.load());
         list.add(new InsnNode(DUP));
         list.add(new InsnNode(ICONST_4));
         list.add(new InsnNode(IADD));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "substring", "(II)Ljava/lang/String;"));
         list.add(new LdcInsnNode("ISO-8859-1"));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
-        list.add(new VarInsnNode(ASTORE, bytes));
+        list.add(bytes.store());
 
         //unpack
-        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(bytes.load());
         list.add(ASMUtils.pushInt(0));
         list.add(new InsnNode(BALOAD));
         list.add(ASMUtils.pushInt(255));
@@ -159,7 +160,7 @@ public class IntegerEncryptTransformer extends Transformer {
         list.add(ASMUtils.pushInt(24));
         list.add(new InsnNode(ISHL));
 
-        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(bytes.load());
         list.add(ASMUtils.pushInt(1));
         list.add(new InsnNode(BALOAD));
         list.add(ASMUtils.pushInt(255));
@@ -168,7 +169,7 @@ public class IntegerEncryptTransformer extends Transformer {
         list.add(new InsnNode(ISHL));
         list.add(new InsnNode(IOR));
 
-        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(bytes.load());
         list.add(ASMUtils.pushInt(2));
         list.add(new InsnNode(BALOAD));
         list.add(ASMUtils.pushInt(255));
@@ -177,7 +178,7 @@ public class IntegerEncryptTransformer extends Transformer {
         list.add(new InsnNode(ISHL));
         list.add(new InsnNode(IOR));
 
-        list.add(new VarInsnNode(ALOAD, bytes));
+        list.add(bytes.load());
         list.add(ASMUtils.pushInt(3));
         list.add(new InsnNode(BALOAD));
         list.add(ASMUtils.pushInt(255));
@@ -186,21 +187,21 @@ public class IntegerEncryptTransformer extends Transformer {
 
         list.add(ASMUtils.pushInt(xorKey));
         list.add(new InsnNode(IXOR));
-        list.add(new VarInsnNode(ALOAD, arr));
-        list.add(new VarInsnNode(ILOAD, i));
+        list.add(arr.load());
+        list.add(i.load());
         list.add(new InsnNode(DUP2_X1));
         list.add(new InsnNode(POP2));
         list.add(new InsnNode(IASTORE));
 
-        list.add(new IincInsnNode(i, 1));
-        list.add(new IincInsnNode(ptr, 4));
+        list.add(new IincInsnNode(i.getIndex(), 1));
+        list.add(new IincInsnNode(ptr.getIndex(), 4));
 
-        list.add(new VarInsnNode(ILOAD, i));
-        list.add(new VarInsnNode(ALOAD, arr));
+        list.add(i.load());
+        list.add(arr.load());
         list.add(new InsnNode(ARRAYLENGTH));
         list.add(new JumpInsnNode(IF_ICMPLT, lbl));
 
-        list.add(new VarInsnNode(ALOAD, arr));
+        list.add(arr.load());
         list.add(new FieldInsnNode(PUTSTATIC, classNode.name, fieldName, "[I"));
 
         if(method.instructions.size() == 0)

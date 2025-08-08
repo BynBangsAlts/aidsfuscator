@@ -1,10 +1,12 @@
 package dev.lvstrng.aids.transform.impl.data;
 
+import dev.lvstrng.aids.analysis.misc.Local;
 import dev.lvstrng.aids.jar.Jar;
 import dev.lvstrng.aids.transform.Transformer;
 import dev.lvstrng.aids.utils.AESUtil;
 import dev.lvstrng.aids.utils.ASMUtils;
 import dev.lvstrng.aids.utils.Dictionary;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.nio.charset.StandardCharsets;
@@ -64,7 +66,7 @@ public class StringEncryptTransformer extends Transformer {
                 "(II)Ljava/lang/String;",
                 null, null
         );
-        // ---- LOCALS ----
+        // ---- LOCALS ---- (we don't need to use the Local class because this is a new method anyway)
         int idxKey  = 0; //param
         int key     = 1; //param
 
@@ -151,7 +153,6 @@ public class StringEncryptTransformer extends Transformer {
 
         for(int i = 0; i < chars.length; i++) {
             int key2 = i == 255 ? dflt : keys[i & 255];
-
             chars[i] = (char) (chars[i] ^ key ^ key2);
         }
 
@@ -196,97 +197,96 @@ public class StringEncryptTransformer extends Transformer {
 
         var theString = AESUtil.encrypt(xor(sb.toString(), key1, key2), aesKey, iv);
         // ---- LOCALS ----
-        var alloc       = method.maxLocals++;   //joined string
-        var lenStrVar   = alloc + 1;            //lengths
-        var keyVar      = alloc + 2;            // key bytes
-        var ivVar       = alloc + 3;            // iv bytes
-        var ciphVar     = alloc + 4;            //cipher
+        var alloc       = Local.allocObject(method);              //joined string
+        var lenStrVar   = Local.allocObject(method);              //lengths
+        var keyVar      = Local.allocObject(method);                            // key bytes
+        var ivVar       = Local.allocObject(method);                            // iv bytes
+        var ciphVar     = Local.allocObject(method);           //cipher
 
         // (for loop)
-        var charArr     = alloc + 5;            //charArr
-        var strArr      = alloc + 6;            //stringArr
-        var iVar        = alloc + 7;            // i (for loop)
+        var charArr     = Local.allocObject(method);                            //charArr
+        var strArr      = Local.allocObject(method);           //stringArr
+        var iVar        = Local.alloc(method, Type.INT_TYPE);                                                   // i (for loop)
 
         // (do-while loop for storing strings)
-        var ptrVar      = alloc + 8;            //ptr
-        var lenVar      = alloc + 9;            //len
+        var ptrVar      = Local.alloc(method, Type.INT_TYPE);                                                   //ptr
+        var lenVar      = Local.alloc(method, Type.INT_TYPE);                                                   //len
 
-        method.maxLocals += lenVar;
         // ---- CODE ----
         var list = new InsnList();
 
         list.add(new LdcInsnNode(theString));
-        list.add(new VarInsnNode(ASTORE, alloc));
+        list.add(alloc.store());
 
         list.add(new LdcInsnNode(new String(lenArr)));
-        list.add(new VarInsnNode(ASTORE, lenStrVar));
+        list.add(lenStrVar.store());
 
         list.add(new LdcInsnNode(new String(aesKey, StandardCharsets.ISO_8859_1)));
         list.add(new LdcInsnNode("ISO-8859-1"));
         list.add(new InsnNode(DUP_X1));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
-        list.add(new VarInsnNode(ASTORE, keyVar));
+        list.add(keyVar.store());
 
         list.add(new LdcInsnNode(new String(iv, StandardCharsets.ISO_8859_1)));
         list.add(new InsnNode(SWAP));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "getBytes", "(Ljava/lang/String;)[B"));
-        list.add(new VarInsnNode(ASTORE, ivVar));
+        list.add(ivVar.store());
 
         // ---- CODE - CIPHER -----
         list.add(new LdcInsnNode("AES/CBC/PKCS5Padding"));
         list.add(new MethodInsnNode(INVOKESTATIC, "javax/crypto/Cipher", "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Cipher;"));
-        list.add(new VarInsnNode(ASTORE, ciphVar));
+        list.add(ciphVar.store());
 
         // --------------
-        list.add(new VarInsnNode(ALOAD, ciphVar));
+        list.add(ciphVar.load());
         list.add(new InsnNode(ICONST_2)); //decrypt mode
 
         list.add(new TypeInsnNode(NEW, "javax/crypto/spec/SecretKeySpec"));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, keyVar));
+        list.add(keyVar.load());
         list.add(new LdcInsnNode("AES"));
         list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/SecretKeySpec", "<init>", "([BLjava/lang/String;)V")); //secretKeySpec
 
         list.add(new TypeInsnNode(NEW, "javax/crypto/spec/IvParameterSpec"));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, ivVar));
+        list.add(ivVar.load());
         list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/IvParameterSpec", "<init>", "([B)V")); //iv
 
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "init", "(ILjava/security/Key;Ljava/security/spec/AlgorithmParameterSpec;)V"));
 
         list.add(new TypeInsnNode(NEW, "java/lang/String"));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, ciphVar));
+        list.add(ciphVar.load());
         list.add(new MethodInsnNode(INVOKESTATIC, "java/util/Base64", "getDecoder", "()Ljava/util/Base64$Decoder;"));
-        list.add(new VarInsnNode(ALOAD, alloc));
+        list.add(alloc.load());
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/util/Base64$Decoder", "decode", "(Ljava/lang/String;)[B"));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "doFinal", "([B)[B"));
         list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([B)V"));
-        list.add(new VarInsnNode(ASTORE, alloc)); //decrypted AES
+        list.add(alloc.store()); //decrypted AES
 
-        list.add(new VarInsnNode(ALOAD, alloc));
+        list.add(alloc.load());
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "toCharArray", "()[C"));
-        list.add(new VarInsnNode(ASTORE, charArr)); //char array
+        list.add(charArr.store()); //char array
 
         list.add(ASMUtils.pushInt(pool.size()));
         list.add(new TypeInsnNode(ANEWARRAY, "java/lang/String"));
-        list.add(new VarInsnNode(ASTORE, strArr)); // string array
+        list.add(strArr.store()); // string array
 
         // ---- CODE - XOR ----
         var forStart = new LabelNode();
         var forEnd =   new LabelNode();
 
         list.add(new InsnNode(ICONST_0));
-        list.add(new VarInsnNode(ISTORE, iVar));
+        list.add(iVar.store());
 
         list.add(forStart);
-        list.add(new VarInsnNode(ILOAD, iVar));
-        list.add(new VarInsnNode(ALOAD, charArr));
+        list.add(iVar.load());
+        list.add(charArr.load());
         list.add(new InsnNode(ARRAYLENGTH));
         list.add(new JumpInsnNode(IF_ICMPGE, forEnd));
 
-        list.add(new VarInsnNode(ALOAD, charArr));
-        list.add(new VarInsnNode(ILOAD, iVar));
+        list.add(charArr.load());
+        list.add(iVar.load());
         list.add(new InsnNode(DUP2));
         list.add(new InsnNode(CALOAD));
 
@@ -297,54 +297,54 @@ public class StringEncryptTransformer extends Transformer {
         list.add(new InsnNode(I2C));
         list.add(new InsnNode(CASTORE));
 
-        list.add(new IincInsnNode(iVar, 1));
+        list.add(new IincInsnNode(iVar.getIndex(), 1));
         list.add(new JumpInsnNode(GOTO, forStart));
 
         list.add(forEnd);
         list.add(new TypeInsnNode(NEW, "java/lang/String"));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, charArr));
+        list.add(charArr.load());
         list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([C)V"));
-        list.add(new VarInsnNode(ASTORE, alloc));
+        list.add(alloc.store());
 
         //---- CODE - DO-WHILE LOOP ----
         list.add(new InsnNode(ICONST_0));
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ISTORE, iVar));
-        list.add(new VarInsnNode(ISTORE, ptrVar));
+        list.add(iVar.store());
+        list.add(ptrVar.store());
 
         var lbl = new LabelNode();
         list.add(lbl);
 
-        list.add(new VarInsnNode(ALOAD, lenStrVar));
-        list.add(new VarInsnNode(ILOAD, iVar));
+        list.add(lenStrVar.load());
+        list.add(iVar.load());
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "charAt", "(I)C"));
-        list.add(new VarInsnNode(ISTORE, lenVar));
+        list.add(lenVar.store());
 
-        list.add(new VarInsnNode(ALOAD, strArr));
-        list.add(new VarInsnNode(ILOAD, iVar));
+        list.add(strArr.load());
+        list.add(iVar.load());
 
-        list.add(new VarInsnNode(ALOAD, alloc));
-        list.add(new VarInsnNode(ILOAD, ptrVar));
+        list.add(alloc.load());
+        list.add(ptrVar.load());
         list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ILOAD, lenVar));
+        list.add(lenVar.load());
         list.add(new InsnNode(IADD));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "substring", "(II)Ljava/lang/String;"));
-
         list.add(new InsnNode(AASTORE));
-        list.add(new IincInsnNode(iVar, 1));
-        list.add(new VarInsnNode(ILOAD, ptrVar));
-        list.add(new VarInsnNode(ILOAD, lenVar));
-        list.add(new InsnNode(IADD));
-        list.add(new VarInsnNode(ISTORE, ptrVar));
 
-        list.add(new VarInsnNode(ILOAD, iVar));
-        list.add(new VarInsnNode(ALOAD, lenStrVar));
+        list.add(new IincInsnNode(iVar.getIndex(), 1));
+        list.add(ptrVar.load());
+        list.add(lenVar.load());
+        list.add(new InsnNode(IADD));
+        list.add(ptrVar.store());
+
+        list.add(iVar.load());
+        list.add(lenStrVar.load());
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "toCharArray", "()[C"));
         list.add(new InsnNode(ARRAYLENGTH));
         list.add(new JumpInsnNode(IF_ICMPLT, lbl));
 
-        list.add(new VarInsnNode(ALOAD, strArr));
+        list.add(strArr.load());
         list.add(new FieldInsnNode(PUTSTATIC, classNode.name, fieldName, "[Ljava/lang/String;"));
 
         if(method.instructions.size() == 0) {
