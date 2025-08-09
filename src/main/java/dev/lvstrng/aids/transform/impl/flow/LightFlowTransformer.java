@@ -9,6 +9,7 @@ import dev.lvstrng.aids.utils.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +19,9 @@ public class LightFlowTransformer extends Transformer {
     public void transform() {
         for(var classNode : Jar.getClasses()) {
             for(var method : classNode.methods) {
+                if(Modifier.isAbstract(method.access) || Modifier.isNative(method.access))
+                    continue;
+
                 var frames = ASMUtils.analyzeMethod(classNode, method);
                 if(frames == null)
                     continue;

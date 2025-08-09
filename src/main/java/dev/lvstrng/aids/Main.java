@@ -15,7 +15,7 @@ public class Main {
 
         obfuscator.readInput();
         obfuscator.obfuscate(
-                new FlowFlattenTransformer()
+                new LightFlowTransformer()
         );
         obfuscator.saveOutput("out.jar");
     }
