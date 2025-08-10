@@ -14,7 +14,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
-//TODO concatenation + different decrypt methods (255, 64 etc. etc.)
+// TODO: different decrypt methods (255, 64 etc. etc.)
 public class StringEncryptTransformer extends Transformer {
     @Override
     public void transform() {
