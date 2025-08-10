@@ -14,11 +14,11 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
-//TODO concatenation + different decrypt methods (255, 64 etc. etc.)
+// TODO: different decrypt methods (255, 64 etc. etc.)
 public class StringEncryptTransformer extends Transformer {
     @Override
     public void transform() {
-        for(var classNode : Jar.getClasses()) {
+        for (var classNode : Jar.getClasses()) {
             var fieldName = Dictionary.FIELD.getNewName(classNode);
             var methodName = Dictionary.METHOD.getNewName(classNode);
             var pool = new ArrayList<String>();
@@ -27,12 +27,14 @@ public class StringEncryptTransformer extends Transformer {
             int dflt = random.nextInt(255);
             int idxXor = random.nextInt();
 
-            for(var method : classNode.methods) {
-                for(var insn : method.instructions) {
-                    if(!(insn instanceof LdcInsnNode ldc))
+            for (var method : classNode.methods) {
+                ASMUtils.translateConcatenation(method);
+
+                for (var ain : method.instructions) {
+                    if (!(ain instanceof LdcInsnNode ldc))
                         continue;
 
-                    if(!(ldc.cst instanceof String str))
+                    if (!(ldc.cst instanceof String str))
                         continue;
 
                     int idx = pool.size();
@@ -50,7 +52,7 @@ public class StringEncryptTransformer extends Transformer {
                 }
             }
 
-            if(!pool.isEmpty()) {
+            if (!pool.isEmpty()) {
                 generateClinit(classNode, fieldName, pool);
                 classNode.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC | ACC_FINAL, fieldName, "[Ljava/lang/String;", null, null));
                 create255Decrypt(classNode, keys, dflt, fieldName, methodName, idxXor);
@@ -58,7 +60,7 @@ public class StringEncryptTransformer extends Transformer {
         }
     }
 
-    //Runtime decrypt method (255 switch keys)
+    // Runtime decrypt method (255 switch keys)
     private static void create255Decrypt(ClassNode classNode, int[] keys, int dflt, String fieldName, String methodName, int xorIdx) {
         var method = new MethodNode(
                 ACC_PRIVATE | ACC_STATIC,
@@ -66,13 +68,14 @@ public class StringEncryptTransformer extends Transformer {
                 "(II)Ljava/lang/String;",
                 null, null
         );
+
         // ---- LOCALS ---- (we don't need to use the Local class because this is a new method anyway)
-        int idxKey  = 0; //param
-        int key     = 1; //param
+        int idxKey = 0; //param
+        int key = 1; //param
 
         int charArr = 2; //chars to return
-        int i       = 3; //for loop
-        int key2    = 4; //xor
+        int i = 3; //for loop
+        int key2 = 4; //xor
 
         // ---- CODE ----
         var list = new InsnList();
@@ -151,7 +154,7 @@ public class StringEncryptTransformer extends Transformer {
     private static String xor255Runtime(String string, int key, int[] keys, int dflt) {
         var chars = string.toCharArray();
 
-        for(int i = 0; i < chars.length; i++) {
+        for (int i = 0; i < chars.length; i++) {
             int key2 = i == 255 ? dflt : keys[i & 255];
             chars[i] = (char) (chars[i] ^ key ^ key2);
         }
@@ -163,7 +166,7 @@ public class StringEncryptTransformer extends Transformer {
         var rand = new SecureRandom();
         var keys = new int[255];
 
-        for(int i = 0; i < 255; i++) {
+        for (int i = 0; i < 255; i++) {
             keys[i] = rand.nextInt(255);
         }
 
@@ -179,6 +182,7 @@ public class StringEncryptTransformer extends Transformer {
                     classNode.methods.add(node);
                     return node;
                 });
+
         // ---- INIT ----
         var aesKey = AESUtil.getKey().getEncoded();
         var iv = AESUtil.getIv();
@@ -187,8 +191,8 @@ public class StringEncryptTransformer extends Transformer {
         int key2 = random.nextInt();
 
         var sb = new StringBuilder();
-        var lenArr = new char[pool.size()]; //saddly won't support strings with length > 65535 (but allows storing of more strings)
-        for(int i = 0; i < pool.size(); i++) {
+        var lenArr = new char[pool.size()]; // sadly won't support strings with length > 65535 (but allows storing of more strings)
+        for (int i = 0; i < pool.size(); i++) {
             var str = pool.get(i);
 
             sb.append(str);
@@ -196,21 +200,22 @@ public class StringEncryptTransformer extends Transformer {
         }
 
         var theString = AESUtil.encrypt(xor(sb.toString(), key1, key2), aesKey, iv);
+
         // ---- LOCALS ----
-        var alloc       = Local.allocObject(method);              //joined string
-        var lenStrVar   = Local.allocObject(method);              //lengths
-        var keyVar      = Local.allocObject(method);                            // key bytes
-        var ivVar       = Local.allocObject(method);                            // iv bytes
-        var ciphVar     = Local.allocObject(method);           //cipher
+        var alloc = Local.allocObject(method);              // stream
+        var lenStrVar = Local.allocObject(method);          // lengths
+        var keyVar = Local.allocObject(method);             // key bytes
+        var ivVar = Local.allocObject(method);              // iv bytes
+        var ciphVar = Local.allocObject(method);            // cipher
 
         // (for loop)
-        var charArr     = Local.allocObject(method);                            //charArr
-        var strArr      = Local.allocObject(method);           //stringArr
-        var iVar        = Local.alloc(method, Type.INT_TYPE);                                                   // i (for loop)
+        var charArr = Local.allocObject(method);            // charArr
+        var strArr = Local.allocObject(method);             // stringArr
+        var iVar = Local.alloc(method, Type.INT_TYPE);      // index
 
         // (do-while loop for storing strings)
-        var ptrVar      = Local.alloc(method, Type.INT_TYPE);                                                   //ptr
-        var lenVar      = Local.alloc(method, Type.INT_TYPE);                                                   //len
+        var ptrVar = Local.alloc(method, Type.INT_TYPE);    // ptr
+        var lenVar = Local.alloc(method, Type.INT_TYPE);    // len
 
         // ---- CODE ----
         var list = new InsnList();
@@ -239,7 +244,7 @@ public class StringEncryptTransformer extends Transformer {
 
         // --------------
         list.add(ciphVar.load());
-        list.add(new InsnNode(ICONST_2)); //decrypt mode
+        list.add(new InsnNode(ICONST_2)); // decrypt mode
 
         list.add(new TypeInsnNode(NEW, "javax/crypto/spec/SecretKeySpec"));
         list.add(new InsnNode(DUP));
@@ -250,7 +255,7 @@ public class StringEncryptTransformer extends Transformer {
         list.add(new TypeInsnNode(NEW, "javax/crypto/spec/IvParameterSpec"));
         list.add(new InsnNode(DUP));
         list.add(ivVar.load());
-        list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/IvParameterSpec", "<init>", "([B)V")); //iv
+        list.add(new MethodInsnNode(INVOKESPECIAL, "javax/crypto/spec/IvParameterSpec", "<init>", "([B)V")); // iv
 
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "init", "(ILjava/security/Key;Ljava/security/spec/AlgorithmParameterSpec;)V"));
 
@@ -262,11 +267,11 @@ public class StringEncryptTransformer extends Transformer {
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/util/Base64$Decoder", "decode", "(Ljava/lang/String;)[B"));
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "javax/crypto/Cipher", "doFinal", "([B)[B"));
         list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([B)V"));
-        list.add(alloc.store()); //decrypted AES
+        list.add(alloc.store()); // decrypted AES
 
         list.add(alloc.load());
         list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "toCharArray", "()[C"));
-        list.add(charArr.store()); //char array
+        list.add(charArr.store()); // char array
 
         list.add(ASMUtils.pushInt(pool.size()));
         list.add(new TypeInsnNode(ANEWARRAY, "java/lang/String"));
@@ -274,7 +279,7 @@ public class StringEncryptTransformer extends Transformer {
 
         // ---- CODE - XOR ----
         var forStart = new LabelNode();
-        var forEnd =   new LabelNode();
+        var forEnd = new LabelNode();
 
         list.add(new InsnNode(ICONST_0));
         list.add(iVar.store());
@@ -307,7 +312,7 @@ public class StringEncryptTransformer extends Transformer {
         list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([C)V"));
         list.add(alloc.store());
 
-        //---- CODE - DO-WHILE LOOP ----
+        // ---- CODE - DO-WHILE LOOP ----
         list.add(new InsnNode(ICONST_0));
         list.add(new InsnNode(DUP));
         list.add(iVar.store());
@@ -347,7 +352,7 @@ public class StringEncryptTransformer extends Transformer {
         list.add(strArr.load());
         list.add(new FieldInsnNode(PUTSTATIC, classNode.name, fieldName, "[Ljava/lang/String;"));
 
-        if(method.instructions.size() == 0) {
+        if (method.instructions.size() == 0) {
             list.add(new InsnNode(RETURN));
         }
 
@@ -357,11 +362,10 @@ public class StringEncryptTransformer extends Transformer {
     public static String xor(String str, int key, int key2) {
         var arr = str.toCharArray();
 
-        for(int i = 0; i < arr.length; i++) {
+        for (int i = 0; i < arr.length; i++) {
             arr[i] = (char) (arr[i] ^ key ^ key2);
         }
 
         return new String(arr);
     }
-
 }
