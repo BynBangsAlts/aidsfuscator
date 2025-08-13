@@ -1,7 +1,9 @@
 package dev.lvstrng.aids;
 
 import dev.lvstrng.aids.jar.Jar;
+import dev.lvstrng.aids.jar.resources.ResourceHandler;
 import dev.lvstrng.aids.transform.Transformer;
+import dev.lvstrng.aids.utils.ZipUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
@@ -54,24 +56,12 @@ public class Obfuscator {
 
         try (var zos = new ZipOutputStream(new FileOutputStream(name))) {
             for(var classNode : classes) {
-                writeZipEntry(zos, classNode.name + ".class", classToBytes(classNode));
+                ZipUtils.writeZipEntry(zos, classNode.name + ".class", classToBytes(classNode));
             }
-
-            for(var resource : Jar.getResources().entrySet()) {
-                writeZipEntry(zos, resource.getKey(), resource.getValue());
-            }
-
+            
+            new ResourceHandler().handle(zos);
             zos.finish();
         } catch (IOException _) {}
-    }
-
-    private static void writeZipEntry(ZipOutputStream zos, String name, byte[] data) throws IOException {
-        if(data == null)
-            return;
-
-        zos.putNextEntry(new ZipEntry(name));
-        zos.write(data);
-        zos.closeEntry();
     }
 
     public static ClassNode readClass(InputStream is) throws IOException {
