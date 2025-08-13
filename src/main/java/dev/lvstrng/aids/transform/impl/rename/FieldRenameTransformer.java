@@ -46,6 +46,8 @@ public class FieldRenameTransformer extends Transformer {
         Jar.getClassMap().putAll(newClasses);
     }
 
+    // !!!!!!!!!!!!!!! NOTE FOR WHOEVER IS READING: past this comment, I literally don't know what the fuck I was doing, I was just coding
+
     /**
      * We check for libraries classes that are in libraries, we will not rename those and keep their names as-is in the output jar
      *
