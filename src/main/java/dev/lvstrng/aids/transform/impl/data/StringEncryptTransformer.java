@@ -9,8 +9,8 @@ import dev.lvstrng.aids.utils.Dictionary;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,13 +19,11 @@ public class StringEncryptTransformer extends Transformer {
     @Override
     public void transform() {
         for (var classNode : Jar.getClasses()) {
-            var fieldName = Dictionary.FIELD.getNewName(classNode);
-            var methodName = Dictionary.METHOD.getNewName(classNode);
-            var pool = new ArrayList<String>();
+            if(Modifier.isInterface(classNode.access))
+                continue;
 
-            var keys = createKeys();
-            int dflt = random.nextInt(255);
-            int idxXor = random.nextInt();
+            var fieldName = Dictionary.FIELD.getNewName(classNode);
+            var pool = new ArrayList<String>();
 
             for (var method : classNode.methods) {
                 ASMUtils.translateConcatenation(method);
@@ -38,139 +36,24 @@ public class StringEncryptTransformer extends Transformer {
                         continue;
 
                     int idx = pool.size();
-                    int key = random.nextInt();
                     var list = new InsnList();
 
-                    list.add(ASMUtils.pushInt(idx ^ idxXor));
-                    list.add(ASMUtils.pushInt(key));
-                    list.add(new MethodInsnNode(INVOKESTATIC, classNode.name, methodName, "(II)Ljava/lang/String;"));
+                    list.add(new FieldInsnNode(GETSTATIC, classNode.name, fieldName, "[Ljava/lang/String;"));
+                    list.add(ASMUtils.pushInt(idx));
+                    list.add(new InsnNode(AALOAD));
 
                     method.instructions.insertBefore(ldc, list);
                     method.instructions.remove(ldc);
 
-                    pool.add(xor255Runtime(str, key, keys, dflt));
+                    pool.add(str);
                 }
             }
 
             if (!pool.isEmpty()) {
                 generateClinit(classNode, fieldName, pool);
                 classNode.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC | ACC_FINAL, fieldName, "[Ljava/lang/String;", null, null));
-                create255Decrypt(classNode, keys, dflt, fieldName, methodName, idxXor);
             }
         }
-    }
-
-    // Runtime decrypt method (255 switch keys)
-    private static void create255Decrypt(ClassNode classNode, int[] keys, int dflt, String fieldName, String methodName, int xorIdx) {
-        var method = new MethodNode(
-                ACC_PRIVATE | ACC_STATIC,
-                methodName,
-                "(II)Ljava/lang/String;",
-                null, null
-        );
-
-        // ---- LOCALS ---- (we don't need to use the Local class because this is a new method anyway)
-        int idxKey = 0; //param
-        int key = 1; //param
-
-        int charArr = 2; //chars to return
-        int i = 3; //for loop
-        int key2 = 4; //xor
-
-        // ---- CODE ----
-        var list = new InsnList();
-
-        list.add(new FieldInsnNode(GETSTATIC, classNode.name, fieldName, "[Ljava/lang/String;"));
-        list.add(new VarInsnNode(ILOAD, idxKey));
-        list.add(ASMUtils.pushInt(xorIdx));
-        list.add(new InsnNode(IXOR));
-        list.add(new InsnNode(AALOAD)); //str
-        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "toCharArray", "()[C"));
-        list.add(new VarInsnNode(ASTORE, charArr));
-
-        // ---- CODE - FOR LOOP ----
-        var forStart = new LabelNode();
-        var forEnd = new LabelNode();
-
-        list.add(new InsnNode(ICONST_0));
-        list.add(new VarInsnNode(ISTORE, i));
-
-        list.add(forStart);
-        list.add(new VarInsnNode(ILOAD, i));
-        list.add(new VarInsnNode(ALOAD, charArr));
-        list.add(new InsnNode(ARRAYLENGTH));
-        list.add(new JumpInsnNode(IF_ICMPGE, forEnd));
-
-        list.add(new VarInsnNode(ILOAD, i));
-        list.add(new IntInsnNode(SIPUSH, 255));
-        list.add(new InsnNode(IAND));
-
-        var dfltLbl = new LabelNode();
-        var ex = new LabelNode();
-        var labels = new LabelNode[255];
-        for (int k = 0; k < 255; k++) {
-            labels[k] = new LabelNode();
-        }
-        list.add(new TableSwitchInsnNode(0, 254, dfltLbl, labels));
-
-        for (int k = 0; k < 255; k++) {
-            list.add(labels[k]);
-            list.add(ASMUtils.pushInt(keys[k]));
-            list.add(new JumpInsnNode(GOTO, ex));
-        }
-
-        list.add(dfltLbl);
-        list.add(ASMUtils.pushInt(dflt));
-        list.add(ex);
-        list.add(new VarInsnNode(ISTORE, key2));
-
-        list.add(new VarInsnNode(ALOAD, charArr));
-        list.add(new VarInsnNode(ILOAD, i));
-
-        list.add(new InsnNode(DUP2));
-        list.add(new InsnNode(CALOAD));
-        list.add(new VarInsnNode(ILOAD, key));
-        list.add(new InsnNode(IXOR));
-        list.add(new VarInsnNode(ILOAD, key2));
-        list.add(new InsnNode(IXOR));
-        list.add(new InsnNode(CASTORE));
-
-        list.add(new IincInsnNode(i, 1));
-        list.add(new JumpInsnNode(GOTO, forStart));
-        list.add(forEnd);
-
-        // ---- CODE - RETURN ----
-        list.add(new TypeInsnNode(NEW, "java/lang/String"));
-        list.add(new InsnNode(DUP));
-        list.add(new VarInsnNode(ALOAD, charArr));
-        list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([C)V"));
-        list.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "intern", "()Ljava/lang/String;"));
-        list.add(new InsnNode(ARETURN));
-
-        method.instructions.add(list);
-        classNode.methods.add(method);
-    }
-
-    private static String xor255Runtime(String string, int key, int[] keys, int dflt) {
-        var chars = string.toCharArray();
-
-        for (int i = 0; i < chars.length; i++) {
-            int key2 = i == 255 ? dflt : keys[i & 255];
-            chars[i] = (char) (chars[i] ^ key ^ key2);
-        }
-
-        return new String(chars);
-    }
-
-    private int[] createKeys() {
-        var rand = new SecureRandom();
-        var keys = new int[255];
-
-        for (int i = 0; i < 255; i++) {
-            keys[i] = rand.nextInt(255);
-        }
-
-        return keys;
     }
 
     @SuppressWarnings("all")
