@@ -66,4 +66,12 @@ public class HierarchyUtils {
     public static List<String> getClasses() {
         return Jar.getClasses().stream().map(e -> e.name).toList();
     }
+
+    public static List<String> getFieldsWithDesc(ClassNode clazz) {
+        return clazz.fields.stream().map(e -> e.name + "." + e.desc).toList();
+    }
+
+    public static List<String> getMethodsWithDesc(ClassNode clazz) {
+        return clazz.methods.stream().map(e -> e.name + e.desc).toList();
+    }
 }
