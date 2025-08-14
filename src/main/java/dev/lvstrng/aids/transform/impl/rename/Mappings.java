@@ -27,4 +27,8 @@ public enum Mappings {
     public String oldOrCurrent(String newName) {
         return newToOld.getOrDefault(newName, newName);
     }
+
+    public Map<String, String> getMappings(boolean newToOld) {
+        return newToOld ? this.newToOld : this.oldToNew;
+    }
 }
