@@ -10,8 +10,8 @@ public class Main {
 
         obfuscator.readInput();
         obfuscator.obfuscate(
-                new MethodRenameTransformer()
         );
         obfuscator.saveOutput("out.jar");
     }
 }
+
