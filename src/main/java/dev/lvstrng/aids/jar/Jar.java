@@ -23,6 +23,14 @@ public class Jar {
         return clazz;
     }
 
+    public static boolean isLib(ClassNode classNode) {
+        return libraries.containsValue(classNode);
+    }
+
+    public static boolean isLib(String name) {
+        return libraries.containsKey(name);
+    }
+
     public static void addResource(String name, byte[] data) {
         resources.put(name, data);
     }

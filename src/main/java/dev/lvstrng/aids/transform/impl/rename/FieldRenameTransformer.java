@@ -46,6 +46,8 @@ public class FieldRenameTransformer extends Transformer {
         Jar.getClassMap().putAll(newClasses);
     }
 
+    // !!!!!!!!!!!!!!! NOTE FOR WHOEVER IS READING: past this comment, I literally don't know what the fuck I was doing, I was just coding
+
     /**
      * We check for libraries classes that are in libraries, we will not rename those and keep their names as-is in the output jar
      *
@@ -58,15 +60,24 @@ public class FieldRenameTransformer extends Transformer {
         if(owner == null)
             return false;
 
+        if(isInAnInterface(owner, name, desc))
+            return true;
+
+        //superclass check
         var current = owner.superName;
         while (current != null && !current.equals("java/lang/Object")) {
-            var clazz = Jar.getLibrary(current);
+            var clazz = Jar.getClassAll(current);
             if(clazz == null)
                 return false; //possibly missing library?
 
-            var list = HierarchyUtils.getFieldsWithDesc(clazz);
-            if(list.contains(name + "." + desc))
-                return true; //field is inherited from library, return
+            if(Jar.isLib(clazz)) {
+                var list = HierarchyUtils.getFieldsWithDesc(clazz);
+                if (list.contains(name + "." + desc))
+                    return true; //field is inherited from library, return
+            }
+
+            if(isInAnInterface(clazz, name, desc))
+                return true;
 
             current = clazz.superName;
         }
@@ -82,5 +93,31 @@ public class FieldRenameTransformer extends Transformer {
      */
     private boolean isFieldFromLibrary(String owner, String name, String desc) {
         return isFieldFromLibrary(Jar.getClassAll(owner), name, desc);
+    }
+
+    //holy recursion
+    private boolean isInAnInterface(ClassNode owner, String name, String desc) {
+        if(owner == null)
+            return false;
+
+        for(var itf : owner.interfaces) {
+            var clazz = Jar.getClassAll(itf);
+            if(clazz == null)
+                continue;
+
+            if(Jar.isLib(clazz)) {
+                if (HierarchyUtils.getFieldsWithDesc(clazz).contains(name + "." + desc))
+                    return true;
+            }
+
+            if(isInAnInterface(clazz, name, desc) || isFieldFromLibrary(clazz, name, desc))
+                return true;
+        }
+
+        return false;
+    }
+
+    private boolean isInAnInterface(String owner, String name, String desc) {
+        return isInAnInterface(Jar.getClassAll(owner), name, desc);
     }
 }
