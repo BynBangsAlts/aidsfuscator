@@ -1,14 +1,6 @@
 package dev.lvstrng.aids;
 
-import dev.lvstrng.aids.jar.Dependencies;
-import dev.lvstrng.aids.transform.impl.data.ArithmeticTransformer;
-import dev.lvstrng.aids.transform.impl.data.IntegerEncryptTransformer;
-import dev.lvstrng.aids.transform.impl.data.StringEncryptTransformer;
-import dev.lvstrng.aids.transform.impl.flow.FlowFlattenTransformer;
-import dev.lvstrng.aids.transform.impl.flow.IfConfuser;
-import dev.lvstrng.aids.transform.impl.flow.UselessExceptionTransformer;
-import dev.lvstrng.aids.transform.impl.rename.ClassRenameTransformer;
-import dev.lvstrng.aids.transform.impl.rename.FieldRenameTransformer;
+import dev.lvstrng.aids.jar.dependencies.Dependencies;
 import org.objectweb.asm.ClassWriter;
 
 public class Main {
@@ -18,15 +10,8 @@ public class Main {
 
         obfuscator.readInput();
         obfuscator.obfuscate(
-                new ClassRenameTransformer(),
-                new FieldRenameTransformer(),
-                new IfConfuser(),
-                new ArithmeticTransformer(),
-                new FlowFlattenTransformer(),
-                new UselessExceptionTransformer(),
-                new StringEncryptTransformer(),
-                new IntegerEncryptTransformer()
         );
         obfuscator.saveOutput("out.jar");
     }
 }
+

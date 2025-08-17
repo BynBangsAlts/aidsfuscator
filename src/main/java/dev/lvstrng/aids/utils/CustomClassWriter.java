@@ -1,6 +1,6 @@
 package dev.lvstrng.aids.utils;
 
-import dev.lvstrng.aids.jar.DependencyMissingException;
+import dev.lvstrng.aids.jar.dependencies.DependencyMissingException;
 import dev.lvstrng.aids.jar.Jar;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
