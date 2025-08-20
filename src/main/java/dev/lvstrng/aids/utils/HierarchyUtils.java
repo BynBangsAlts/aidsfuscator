@@ -74,4 +74,61 @@ public class HierarchyUtils {
     public static List<String> getMethodsWithDesc(ClassNode clazz) {
         return clazz.methods.stream().map(e -> e.name + e.desc).toList();
     }
+
+    public static boolean isInheritedFromLibrary(String owner, String methodName, String descriptor) {
+        return isInheritedFromLibrary(Jar.getClassAll(owner), methodName, descriptor);
+    }
+
+    public static boolean isInheritedFromLibrary(ClassNode owner, String methodName, String descriptor) {
+        if(owner == null)
+            return true;
+
+        if(Jar.isLib(owner))
+            return true;
+
+        if(checkInterface(owner, methodName, descriptor))
+            return true;
+
+        var current = owner.superName; // don't check current
+        while (current != null && !current.equals("java/lang/Object")) {
+            var clazz = Jar.getClassAll(current);
+            if(clazz == null)
+                continue;
+
+            if(Jar.isLib(current)) { //only check for libraries, don't rename the methods there
+                if(checkInterface(owner, methodName, descriptor))
+                    return true;
+
+                if(HierarchyUtils.getMethodsWithDesc(clazz).contains(methodName + descriptor))
+                    return true;
+            }
+
+            current = clazz.superName;
+        }
+
+        return false;
+    }
+
+    private static boolean checkInterface(ClassNode owner, String methodName, String descriptor) {
+        for(var itf : owner.interfaces) {
+            var clazz = Jar.getClassAll(itf);
+            if(clazz == null)
+                continue;
+
+            if(HierarchyUtils.getMethodsWithDesc(clazz).contains(methodName + descriptor))
+                continue;
+
+            if(Jar.isLib(clazz)) {
+                if(isInheritedFromLibrary(clazz, methodName, descriptor))
+                    continue;
+
+                if(checkInterface(clazz, methodName, descriptor))
+                    continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
 }

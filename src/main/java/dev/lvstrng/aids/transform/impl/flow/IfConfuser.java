@@ -7,7 +7,7 @@ import dev.lvstrng.aids.utils.ASMUtils;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
-public class IfConfuser extends Transformer {
+public class IfConfuser implements Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {

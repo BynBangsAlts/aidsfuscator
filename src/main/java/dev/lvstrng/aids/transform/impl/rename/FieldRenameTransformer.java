@@ -10,7 +10,7 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.util.HashMap;
 
-public class FieldRenameTransformer extends Transformer {
+public class FieldRenameTransformer implements Transformer {
     @Override
     public void transform() {
         // register all mappings

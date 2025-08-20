@@ -194,4 +194,25 @@ public class ASMUtils implements Opcodes {
         }
     }
 
+    public static boolean isValidIntPush(AbstractInsnNode insn) {
+        return (insn instanceof LdcInsnNode ldc && ldc.cst instanceof Integer) || insn.getOpcode() == SIPUSH || insn.getOpcode() == BIPUSH;
+    }
+
+    public static boolean isValidLongPush(AbstractInsnNode insn) {
+        return insn instanceof LdcInsnNode ldc && ldc.cst instanceof Long;
+    }
+
+    public static long getLong(AbstractInsnNode insn) {
+        if(insn instanceof LdcInsnNode ldc)
+            return (long) ldc.cst;
+
+        throw new RuntimeException("Ass nigga");
+    }
+
+    public static AbstractInsnNode pushLong(long l) {
+        if(l == 1L || l == 0L)
+            return new InsnNode(LCONST_0 + (int) l);
+
+        return new LdcInsnNode(l);
+    }
 }

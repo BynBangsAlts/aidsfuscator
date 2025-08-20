@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 //TODO encrypt before adding to pool and add decrypt method
-public class IntegerEncryptTransformer extends Transformer {
+public class IntegerEncryptTransformer implements Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {
@@ -29,7 +29,7 @@ public class IntegerEncryptTransformer extends Transformer {
 
             for(var method : classNode.methods) {
                 for(var insn : method.instructions) {
-                    if(!isValidIntPush(insn))
+                    if(!ASMUtils.isValidIntPush(insn))
                         continue;
 
                     int xor1 = random.nextInt();
@@ -208,10 +208,6 @@ public class IntegerEncryptTransformer extends Transformer {
             list.add(new InsnNode(RETURN));
 
         method.instructions.insert(list);
-    }
-
-    private static boolean isValidIntPush(AbstractInsnNode insn) {
-        return (insn instanceof LdcInsnNode ldc && ldc.cst instanceof Integer) || insn.getOpcode() == SIPUSH || insn.getOpcode() == BIPUSH;
     }
 
     private static byte[] intToBytes(int i) {

@@ -12,7 +12,7 @@ import org.objectweb.asm.tree.analysis.Frame;
 
 import java.util.*;
 
-public class FlowFlattenTransformer extends Transformer {
+public class FlowFlattenTransformer implements Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {

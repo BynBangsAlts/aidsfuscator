@@ -9,7 +9,7 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.util.HashMap;
 
-public class ClassRenameTransformer extends Transformer {
+public class ClassRenameTransformer implements Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {

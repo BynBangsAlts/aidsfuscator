@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // TODO: different decrypt methods (255, 64 etc. etc.)
-public class StringEncryptTransformer extends Transformer {
+public class StringEncryptTransformer implements Transformer {
     @Override
     public void transform() {
         for (var classNode : Jar.getClasses()) {

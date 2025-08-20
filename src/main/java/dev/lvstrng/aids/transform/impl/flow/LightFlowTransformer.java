@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class LightFlowTransformer extends Transformer {
+public class LightFlowTransformer implements Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {
