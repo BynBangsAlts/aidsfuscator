@@ -1,4 +1,4 @@
-package dev.lvstrng.aids.transform.impl.data;
+package dev.lvstrng.aids.transform.impl.misc;
 
 import dev.lvstrng.aids.analysis.callgraph.CallGraph;
 import dev.lvstrng.aids.jar.Jar;
