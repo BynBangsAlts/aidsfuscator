@@ -12,6 +12,8 @@
 .classpath
 .project
 *.iml
+*.jar
+*.txt
 
 # Common compiler output directories
 target/

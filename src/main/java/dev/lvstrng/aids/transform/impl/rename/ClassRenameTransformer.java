@@ -9,11 +9,13 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.util.HashMap;
 
-public class ClassRenameTransformer extends Transformer {
+public class ClassRenameTransformer implements Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {
             Mappings.CLASS.register(classNode.name, Dictionary.CLASS.getNewName(null));
+            classNode.sourceFile = null;
+            classNode.sourceDebug = null;
         }
 
         var newMap = new HashMap<String, ClassNode>();

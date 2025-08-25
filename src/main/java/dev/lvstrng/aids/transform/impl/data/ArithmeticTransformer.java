@@ -5,7 +5,7 @@ import dev.lvstrng.aids.transform.Transformer;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
 
-public class ArithmeticTransformer extends Transformer {
+public class ArithmeticTransformer implements Transformer {
     @Override
     public void transform() {
         for(var classNode : Jar.getClasses()) {

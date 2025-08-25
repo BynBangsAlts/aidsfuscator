@@ -14,7 +14,7 @@ import java.util.ArrayList;
  * Procyon does a weird loadexception() call.
  * Vienflower just makes the code hard to read
  */
-public class UselessExceptionTransformer extends Transformer {
+public class UselessExceptionTransformer implements Transformer {
     private final String[] handlerTypes = {
             "java/io/IOException",
             "java/lang/InterruptedException",

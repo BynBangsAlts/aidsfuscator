@@ -62,6 +62,10 @@ public class CallGraph {
         return nodes.stream().filter(e -> e.callee() == method).toList();
     }
 
+    public List<CallNode> getCallsFor(String method) {
+        return nodes.stream().filter(e -> (e.callee().name + e.callee().desc).equals(method)).toList();
+    }
+
     public List<CallNode> getNodes() {
         return nodes;
     }
