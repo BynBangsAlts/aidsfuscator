@@ -67,7 +67,7 @@ public class MethodParameterChangeTransformer implements Transformer {
         var indexes = new HashMap<MethodNode, Integer>();
         for(var classNode : Jar.getClasses()) {
             for(var method : classNode.methods) {
-                if(HierarchyUtils.isInheritedFromLibrary(classNode, method.name, method.desc))
+                if(HierarchyUtils.isMethodFromLibrary(classNode.name, method.name, method.desc))
                     continue;
 
                 if (blacklisted(classNode, method))
@@ -79,7 +79,7 @@ public class MethodParameterChangeTransformer implements Transformer {
 
         for (var classNode : Jar.getClasses()) {
             for (var method : classNode.methods) {
-                if(HierarchyUtils.isInheritedFromLibrary(classNode, method.name, method.desc))
+                if(HierarchyUtils.isMethodFromLibrary(classNode.name, method.name, method.desc))
                     continue;
 
                 if (blacklisted(classNode, method))

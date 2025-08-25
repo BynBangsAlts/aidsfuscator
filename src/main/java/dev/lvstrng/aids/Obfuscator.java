@@ -1,11 +1,12 @@
 package dev.lvstrng.aids;
 
 import dev.lvstrng.aids.jar.Jar;
+import dev.lvstrng.aids.jar.hierarchy.Hierarchy;
 import dev.lvstrng.aids.jar.resources.ResourceHandler;
 import dev.lvstrng.aids.transform.Transformer;
+import dev.lvstrng.aids.utils.CustomClassWriter;
 import dev.lvstrng.aids.utils.ZipUtils;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.io.File;
@@ -13,13 +14,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 public class Obfuscator {
     private final File input;
     public static int writerFlags;
+
+    public static Hierarchy hierarchy;
 
     public Obfuscator(String input, int flags) {
         this.input = new File(input);
@@ -39,6 +41,8 @@ public class Obfuscator {
                 }
             }
         } catch (IOException _) {}
+
+        hierarchy = new Hierarchy();
     }
 
     public void obfuscate(Transformer... transformers) {
@@ -71,7 +75,7 @@ public class Obfuscator {
     }
 
     public static byte[] classToBytes(ClassNode classNode) {
-        var writer = new ClassWriter(writerFlags);
+        var writer = new CustomClassWriter(writerFlags); // why didn't we use this earlier...?
         classNode.accept(writer);
         return writer.toByteArray();
     }

@@ -14,6 +14,8 @@ public class ClassRenameTransformer implements Transformer {
     public void transform() {
         for(var classNode : Jar.getClasses()) {
             Mappings.CLASS.register(classNode.name, Dictionary.CLASS.getNewName(null));
+            classNode.sourceFile = null;
+            classNode.sourceDebug = null;
         }
 
         var newMap = new HashMap<String, ClassNode>();

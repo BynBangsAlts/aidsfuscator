@@ -161,7 +161,7 @@ public class MethodParameterObfuscateTransformer implements Transformer {
     }
 
     private boolean blacklisted(ClassNode classNode, MethodNode method) {
-        if(HierarchyUtils.isInheritedFromLibrary(classNode, method.name, method.desc))
+        if(HierarchyUtils.isMethodFromLibrary(classNode.name, method.name, method.desc))
             return true;
 
         if(method.name.equals("<clinit>"))
